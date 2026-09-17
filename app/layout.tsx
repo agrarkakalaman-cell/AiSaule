@@ -2,18 +2,18 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "TILIN.AI — Қазақша сөйлей бастаңыз",
-  description: "Қазақ тілін күнделікті диалогтар, қысқа сабақтар және жеке қарқынмен үйренуге арналған платформа.",
+  title: "Ai.Saule — ҚазҰАЗУ студенттеріне қазақ тілі",
+  description: "ҚазҰАЗУ-да білім алатын шетелдік студенттерге арналған қазақ тілін үйрену порталы.",
   icons: { icon: "/favicon.svg" },
   openGraph: {
-    title: "TILIN.AI — Қазақша сөйлей бастаңыз",
-    description: "Қазақ тілін күнделікті диалогтар, қысқа сабақтар және жеке қарқынмен үйреніңіз.",
-    images: [{ url: "/og.png", width: 1728, height: 910, alt: "TILIN.AI — Қазақша сөйлей бастаңыз" }],
+    title: "Ai.Saule — ҚазҰАЗУ студенттеріне қазақ тілі",
+    description: "Шетелдік студенттерге арналған қазақ тілін үйрену порталы.",
+    images: [{ url: "/og.png", width: 1728, height: 910, alt: "Ai.Saule — ҚазҰАЗУ студенттеріне қазақ тілі" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "TILIN.AI — Қазақша сөйлей бастаңыз",
-    description: "Қазақ тілін күнделікті диалогтар, қысқа сабақтар және жеке қарқынмен үйреніңіз.",
+    title: "Ai.Saule — ҚазҰАЗУ студенттеріне қазақ тілі",
+    description: "Шетелдік студенттерге арналған қазақ тілін үйрену порталы.",
     images: ["/og.png"],
   },
 };

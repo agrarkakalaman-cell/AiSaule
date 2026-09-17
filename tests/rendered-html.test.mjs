@@ -10,17 +10,17 @@ async function render() {
   }, { waitUntil() {}, passThroughOnException() {} });
 }
 
-test("server-renders the TILIN AI landing page", async () => {
+test("server-renders the Ai.Saule landing page", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
   assert.match(html, /<html lang="kk">/i);
-  assert.match(html, /TILIN\.AI/);
-  assert.match(html, /Қазақша сөйлей/);
-  assert.match(html, /Тегін бастау/);
-  assert.match(html, /Мүмкіндіктер/);
+  assert.match(html, /Ai\.Saule/);
+  assert.match(html, /ҚазҰАЗУ/);
+  assert.match(html, /Қазақ тілі/);
+  assert.match(html, /Сабақты бастау/);
   assert.match(html, /og\.png/);
   assert.doesNotMatch(html, /codex-preview|Building your site|react-loading-skeleton/i);
 });
