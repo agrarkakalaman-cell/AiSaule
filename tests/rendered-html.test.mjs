@@ -20,7 +20,8 @@ test("server-renders the Ai.Saule landing page", async () => {
   assert.match(html, /Ai\.Saule/);
   assert.match(html, /ҚазҰАЗУ/);
   assert.match(html, /Қазақ тілі/);
-  assert.match(html, /Сабақты бастау/);
+  assert.match(html, /id="source-text"/);
+  assert.match(html, /Русский/);
   assert.match(html, /og\.png/);
   assert.doesNotMatch(html, /codex-preview|Building your site|react-loading-skeleton/i);
 });
