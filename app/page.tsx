@@ -4,6 +4,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import dailyVocabularyData from "./data/daily-vocabulary.json";
+import uiCopyData from "./data/ui-copy.json";
 
 type VocabularyEntry = {
   id: number;
@@ -16,6 +17,32 @@ const dailyVocabulary = dailyVocabularyData as VocabularyEntry[];
 const vocabularyPageSize = 3;
 const vocabularyPageCount = Math.ceil(dailyVocabulary.length / vocabularyPageSize);
 const vocabularyRowKinds = ["word", "phrase", "answer"] as const;
+type UiCopy = typeof uiCopyData.kk;
+const uiCopy = uiCopyData as Record<string, UiCopy>;
+const heroTitleSegments: Record<string, [string, string, string]> = {
+  kk: ["Қазақ тілі —", "жаңа ортаңыздың", "тілі."],
+  en: ["Kazakh —", "the language of your", "new environment."],
+  tk: ["Gazak dili —", "täze gurşawyňyzyň", "dilidir."],
+  prs: ["زبان قزاقی —", "زبان محیط جدید", "شماست."],
+  ps: ["قزاقي ژبه —", "ستاسو د نوي چاپېریال", "ژبه ده."],
+  be: ["Казахская мова —", "мова вашага", "новага асяроддзя."],
+  hu: ["A kazah nyelv —", "az új környezeted", "nyelve."],
+  ky: ["Казак тили —", "жаңы чөйрөңүздүн", "тили."],
+  "zh-CN": ["哈萨克语 —", "您融入新环境的", "语言。"],
+  mn: ["Казах хэл —", "таны шинэ орчны", "хэл."],
+  ur: ["قازق زبان —", "آپ کے نئے ماحول کی", "زبان ہے۔"],
+  ru: ["Казахский язык —", "язык вашей", "новой среды."],
+  tr: ["Kazakça —", "yeni çevrenizin", "dilidir."],
+  uz: ["Qozoq tili —", "yangi muhitingizning", "tili."],
+  uk: ["Казахська мова —", "мова вашого", "нового середовища."],
+};
+const brandTaglines: Record<string, string> = {
+  kk: "Қазақ тілі • ҚазҰАЗУ", en: "Kazakh language • KazNARU", tk: "Gazak dili • KazNARU",
+  prs: "زبان قزاقی • KazNARU", ps: "قزاقي ژبه • KazNARU", be: "Казахская мова • KazNARU",
+  hu: "Kazah nyelv • KazNARU", ky: "Казак тили • KazNARU", "zh-CN": "哈萨克语 • KazNARU",
+  mn: "Казах хэл • KazNARU", ur: "قازق زبان • KazNARU", ru: "Казахский язык • KazNARU",
+  tr: "Kazakça • KazNARU", uz: "Qozoq tili • KazNARU", uk: "Казахська мова • KazNARU",
+};
 
 type Language = {
   code: string;
@@ -49,13 +76,6 @@ const targetLanguageMeta: Record<string, { short: string; label: string; placeho
   tk: { short: "TÜRKMENÇE", label: "Türkmençe", placeholder: "Terjime şu ýerde peýda bolar" },
 };
 
-const examplesByLanguage: Record<string, string[]> = {
-  tk: ["Sag boluň", "Salam", "Meniň adym Erbolat"],
-  kk: ["Рақмет", "Сәлем", "Менің атым Ерболат"],
-  ru: ["Спасибо", "Привет", "Меня зовут Ерболат"],
-  en: ["Thank you", "Hello", "My name is Erbolat"],
-};
-
 type TranslationState = Record<string, { text?: string; error?: string }>;
 
 const translatorApiUrl = (process.env.NEXT_PUBLIC_TRANSLATOR_API_URL ?? "").trim().replace(/\/$/, "");
@@ -86,7 +106,7 @@ export default function Home() {
   const [vocabularyIndex, setVocabularyIndex] = useState(0);
   const [sourceText, setSourceText] = useState("");
   const [translation, setTranslation] = useState<TranslationState>({});
-  const [selectedLanguageCode, setSelectedLanguageCode] = useState("TKM");
+  const [selectedLanguageCode, setSelectedLanguageCode] = useState("ҚАЗ");
   const [secondaryLanguageCode, setSecondaryLanguageCode] = useState("ru");
   const [isTranslating, setIsTranslating] = useState(false);
   const [isDictating, setIsDictating] = useState(false);
@@ -119,6 +139,9 @@ export default function Home() {
   }, []);
 
   const selectedLanguage = interfaceLanguages.find((language) => language.code === selectedLanguageCode) ?? interfaceLanguages[2];
+  const copy = uiCopy[selectedLanguage.translateCode] ?? uiCopy.kk;
+  const heroTitle = heroTitleSegments[selectedLanguage.translateCode] ?? heroTitleSegments.kk;
+  const brandTagline = brandTaglines[selectedLanguage.translateCode] ?? brandTaglines.kk;
   const vocabularyStart = vocabularyIndex * vocabularyPageSize;
   const currentVocabulary = dailyVocabulary.slice(vocabularyStart, vocabularyStart + vocabularyPageSize).map((item, itemIndex) => ({
     ...item,
@@ -126,7 +149,12 @@ export default function Home() {
     translation: item.translations[selectedLanguage.translateCode] ?? item.translations.en,
   }));
   const targetLanguages = ["kk", secondaryLanguageCode];
-  const sourceExamples = examplesByLanguage[selectedLanguage.translateCode] ?? [];
+  const sourceExamples = dailyVocabulary.slice(0, 3).map((item) => item.translations[selectedLanguage.translateCode] ?? item.translations.en);
+
+  useEffect(() => {
+    document.documentElement.lang = selectedLanguage.translateCode;
+    document.documentElement.dir = "ltr";
+  }, [selectedLanguage.translateCode]);
 
   const clearPendingTranslation = () => {
     requestIdRef.current += 1;
@@ -275,28 +303,27 @@ export default function Home() {
         signal: controller.signal,
       });
       if (!response.ok) {
-        const errorPayload = await response.json().catch(() => ({})) as { detail?: string; error?: string };
-        throw new Error(errorPayload.detail ?? errorPayload.error ?? "Аударма сервисі сұрауды орындай алмады.");
+        throw new Error(copy.translationFailed);
       }
       const payload = await response.json() as { translations?: Record<string, string> };
-      if (!payload.translations) throw new Error("Invalid translation response");
+      if (!payload.translations) throw new Error(copy.translationFailed);
       if (requestId === requestIdRef.current) {
         setTranslation(Object.fromEntries(targetLanguages.map((targetLanguage) => [
           targetLanguage,
           payload.translations?.[targetLanguage]
             ? { text: payload.translations[targetLanguage] }
-            : { error: "Аударма алынбады. Қайта көріңіз." },
+            : { error: copy.translationFailed },
         ])));
       }
     } catch (caughtError) {
       if (requestId === requestIdRef.current) {
         const error = controller.signal.aborted
-          ? "Аударма уақыты аяқталды. Қайта көріңіз."
+          ? copy.translationTimeout
           : caughtError instanceof TypeError
-            ? "Аударма сервисімен байланыс жоқ. Қайта көріңіз."
+            ? copy.translationConnection
             : caughtError instanceof Error
               ? caughtError.message
-              : "Аударма алынбады. Қайта көріңіз.";
+              : copy.translationFailed;
         setTranslation(Object.fromEntries(targetLanguages.map((targetLanguage) => [targetLanguage, { error }])));
       }
     } finally {
@@ -309,20 +336,43 @@ export default function Home() {
   };
 
   return (
-    <main data-ready={isReady ? "true" : "false"}>
+    <main data-ready={isReady ? "true" : "false"} dir="ltr">
       <audio ref={radioRef} preload="none" src="https://radio-streams.kaztrk.kz/shalqar/shalqar/icecast.audio" onPause={() => setIsListening(false)} onError={() => setIsListening(false)} />
-      <div className="utility-bar"><div className="utility-inner"><span>Қазақ ұлттық аграрлық зерттеу университеті</span><div className="language-list" aria-label="Аудармаға арналған бастапқы тіл">{interfaceLanguages.map((language) => <button type="button" className={`language${language.code === selectedLanguage.code ? " active" : ""}`} onClick={() => selectLanguage(language)} key={language.code} title={`${language.label} тілінен аудару`} aria-label={`${language.label} тілінен аудару`} aria-pressed={language.code === selectedLanguage.code} disabled={!isReady}>{language.code}</button>)}</div></div></div>
+      <div className="utility-bar"><div className="utility-inner"><span dir="auto">{copy.university}</span><div className="language-list" aria-label={copy.translationFrom}>{interfaceLanguages.map((language) => <button type="button" className={`language${language.code === selectedLanguage.code ? " active" : ""}`} onClick={() => selectLanguage(language)} key={language.code} title={language.label} aria-label={language.label} aria-pressed={language.code === selectedLanguage.code} disabled={!isReady}>{language.code}</button>)}</div></div></div>
       <header ref={headerRef} className="site-header" id="top">
-        <a className="brand" href="#top" aria-label="Ai.Saule басты беті"><span className="brand-seal"><i>AI</i></span><span className="brand-copy"><strong>Ai.Saule</strong><small>Kazakh language for KazNARU students</small></span></a>
-        <div className="header-audio-group"><div className={`header-audio ${isListening ? "listening" : ""}`} aria-label="Шалқар радиосы"><div className="header-audio-wave" aria-hidden="true">{Array.from({ length: 14 }).map((_, index) => <i key={index} style={{ height: `${30 + ((index * 23) % 58)}%` }} />)}</div><button onClick={toggleRadio} aria-pressed={isListening} aria-label={isListening ? "Шалқар радиосын тоқтату" : "Шалқар радиосын қосу"}>{isListening ? "■" : "●"}</button></div><p>Diňläň. <em>Gaýtalaň.</em> Gepleşiň.</p></div>
+        <a className="brand" href="#top" aria-label="Ai.Saule"><span className="brand-seal"><i>AI</i></span><span className="brand-copy"><strong>Ai.Saule</strong><small>{brandTagline}</small></span></a>
+        <div className="header-audio-group"><div className={`header-audio ${isListening ? "listening" : ""}`} aria-label="Шалқар радиосы"><div className="header-audio-wave" aria-hidden="true">{Array.from({ length: 14 }).map((_, index) => <i key={index} style={{ height: `${30 + ((index * 23) % 58)}%` }} />)}</div><button onClick={toggleRadio} aria-pressed={isListening} aria-label="Шалқар радиосы">{isListening ? "■" : "●"}</button></div><p dir="auto">{copy.listen} <em>{copy.repeat}</em> {copy.speak}</p></div>
       </header>
 
       <section className="hero" aria-labelledby="hero-title">
-        <div className="hero-grid"><div className="hero-copy"><p className="section-tag light">ҚАЗҰАЗУ • ШЕТЕЛДІК СТУДЕНТТЕР ҮШІН</p><h1 id="hero-title">Қазақ тілі —<br /><em>жаңа ортаңыздың</em><br />тілі.</h1><p>Ai.Saule көмегімен ҚазҰАЗУ-дағы күнделікті өмірге керек қазақ тілін қысқа, түсінікті сабақтар арқылы үйреніңіз.</p></div><section className="hero-dictionary" aria-labelledby="hero-dictionary-title"><p className="dictionary-label">КҮНДЕЛІКТІ 300 СӨЗ — <span>{selectedLanguage.label}</span></p><h2 id="hero-dictionary-title">Күнде бір сөз — <em>бір қадам алға.</em></h2><p className="dictionary-translation">ҚазҰАЗУ-да жиі қолданылатын қазақ сөздері мен тіркестері</p><div className="dictionary-line" /><div key={`${selectedLanguage.translateCode}-${vocabularyIndex}`} aria-live="polite">{currentVocabulary.map((item) => <div className={`dictionary-row ${item.kind}`} key={item.id}><span className="dictionary-left">{item.category}</span><strong>{item.kazakh}</strong><span dir="auto">{item.translation}</span></div>)}</div><div className="dictionary-pages" aria-label="Сөздік топтарын басқару"><button type="button" onClick={() => setVocabularyIndex((current) => (current - 1 + vocabularyPageCount) % vocabularyPageCount)} aria-label="Алдыңғы үш сөз">←</button><span>{vocabularyStart + 1}–{Math.min(vocabularyStart + vocabularyPageSize, dailyVocabulary.length)} / {dailyVocabulary.length}</span><button type="button" onClick={() => setVocabularyIndex((current) => (current + 1) % vocabularyPageCount)} aria-label="Келесі үш сөз">→</button></div></section></div><div className="hero-ring ring-one" /><div className="hero-ring ring-two" />
+        <div className="hero-grid"><div className="hero-copy" dir="auto"><p className="section-tag light">{copy.audience}</p><h1 id="hero-title">{heroTitle[0]}<br /><em>{heroTitle[1]}</em><br />{heroTitle[2]}</h1><p>{copy.heroDescription}</p></div><section className="hero-dictionary" aria-labelledby="hero-dictionary-title"><p className="dictionary-label" dir="auto">{copy.dailyVocabulary} — <span>{selectedLanguage.label}</span></p><h2 id="hero-dictionary-title" dir="auto">{copy.dictionaryLead} <em>{copy.dictionaryAccent}</em></h2><p className="dictionary-translation" dir="auto">{copy.dictionaryDescription}</p><div className="dictionary-line" /><div key={`${selectedLanguage.translateCode}-${vocabularyIndex}`} aria-live="polite">{currentVocabulary.map((item) => <div className={`dictionary-row ${item.kind}`} key={item.id}><span className="dictionary-left">{item.category}</span><strong>{item.kazakh}</strong><span dir="auto">{item.translation}</span></div>)}</div><div className="dictionary-pages" aria-label={copy.dailyVocabulary}><button type="button" onClick={() => setVocabularyIndex((current) => (current - 1 + vocabularyPageCount) % vocabularyPageCount)} aria-label={copy.previousWords}>←</button><span>{vocabularyStart + 1}–{Math.min(vocabularyStart + vocabularyPageSize, dailyVocabulary.length)} / {dailyVocabulary.length}</span><button type="button" onClick={() => setVocabularyIndex((current) => (current + 1) % vocabularyPageCount)} aria-label={copy.nextWords}>→</button></div></section></div><div className="hero-ring ring-one" /><div className="hero-ring ring-two" />
       </section>
 
-      <section className="translator-section" aria-labelledby="translator-title"><div className="translator-wrap"><p className="translator-label">Ai.SAULE TRANSLATE</p><h2 id="translator-title">{selectedLanguage.label} мәтін — <em>бір қадам алға.</em></h2><p className="translator-status"><i /> {selectedLanguage.label} тілінен аударма</p><div className="translator-input-head"><span>{selectedLanguage.inputLabel}</span><strong>{selectedLanguage.label}</strong></div><div className="translator-input"><label className="sr-only" htmlFor="source-text">{selectedLanguage.label} мәтіні</label><textarea id="source-text" value={sourceText} disabled={!isReady} onChange={(event) => updateSourceText(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); translateText(); } }} placeholder={selectedLanguage.placeholder} /><button type="button" className={`dictation-button${isDictating ? " active" : ""}`} onClick={toggleDictation} disabled={!isReady} aria-pressed={isDictating} aria-label={isDictating ? "Микрофонды тоқтату" : "Микрофонмен мәтін енгізу"} title="Микрофонмен мәтін енгізу">{isDictating ? "■" : "🎙"}</button></div><div className="translator-actions"><div>{sourceExamples.map((example) => <button type="button" key={example} disabled={!isReady} onClick={() => updateSourceText(example)}>{example}</button>)}</div><button type="button" className="translate-button" onClick={translateText} disabled={!isReady || !sourceText.trim() || isTranslating}>{isTranslating ? "АУДАРЫЛУДА…" : "АУДАРУ →"}</button></div>{speechError && <p className="speech-error" role="alert">{speechError}</p>}<div className="translation-results" aria-live="polite">{targetLanguages.map((targetLanguage) => { const language = interfaceLanguages.find((item) => item.translateCode === targetLanguage)!; const meta = targetLanguageMeta[targetLanguage] ?? { short: language.inputLabel, label: language.label, placeholder: "Аударма осында шығады" }; const result = translation[targetLanguage]; const hasSpeech = speechSupportedLanguages.has(targetLanguage); return <article key={targetLanguage} data-target-language={targetLanguage}><header><span>{meta.short}</span><div>{targetLanguage === "kk" ? <b>{meta.label}</b> : <select className="target-language-select" aria-label="Екінші аударма тілі" value={secondaryLanguageCode} disabled={!isReady} onChange={(event) => { clearPendingTranslation(); setSecondaryLanguageCode(event.target.value); }}>{interfaceLanguages.filter((item) => item.translateCode !== "kk").map((item) => <option key={item.translateCode} value={item.translateCode}>{item.label}</option>)}</select>}<button type="button" className="speech-button" onClick={() => createSpeech(result?.text ?? "", targetLanguage)} disabled={!hasSpeech || !result?.text || speakingLanguage !== null} aria-label={`${meta.label} аудармасын тыңдау`} title={hasSpeech ? "Тыңдау" : "Azure Speech бұл тілді қолдамайды"}>{speakingLanguage === targetLanguage ? "…" : "▶"}</button><button type="button" className="speech-button" onClick={() => createSpeech(result?.text ?? "", targetLanguage, true)} disabled={!hasSpeech || !result?.text || speakingLanguage !== null} aria-label={`${meta.label} аудармасын MP3 форматында жүктеу`} title={hasSpeech ? "MP3 жүктеу" : "Azure Speech бұл тілді қолдамайды"}>↓</button></div></header><p className={result?.error ? "translation-error" : undefined}>{result?.text ?? result?.error ?? meta.placeholder}</p></article>; })}</div><div className="translator-note"><strong>Ai.SAULE ТҮСІНДІРМЕСІ</strong><p>{Object.keys(translation).length ? `${selectedLanguage.label} тілінен автоматты аударма` : "Мәтінді енгізіп, «Аудару» батырмасын басыңыз."}</p></div><div className="translator-example"><span>БАСТАПҚЫ МӘТІН</span><p>{Object.keys(translation).length ? sourceText.trim() : "Аударылған мәтін осы жерде көрсетіледі."}</p></div></div></section>
-      <footer className="site-footer"><a className="brand" href="#top"><span className="brand-seal"><i>AI</i></span><span className="brand-copy"><strong>Ai.Saule</strong><small>Kazakh language for KazNARU students</small></span></a><p>ҚазҰАЗУ-дың шетелдік студенттеріне<br />арналған қазақ тілі порталы.</p><a className="top-link" href="#top">Жоғарыға ↑</a></footer>
+      <section className="translator-section" aria-labelledby="translator-title">
+        <div className="translator-wrap">
+          <p className="translator-label">Ai.SAULE • {copy.translate.replace(" →", "")}</p>
+          <h2 id="translator-title" dir="auto">{selectedLanguage.label} {copy.textLabel} — <em>{copy.dictionaryAccent}</em></h2>
+          <p className="translator-status" dir="auto"><i /> {selectedLanguage.label} {copy.translationFrom}</p>
+          <div className="translator-input-head"><span>{selectedLanguage.inputLabel}</span><strong>{selectedLanguage.label}</strong></div>
+          <div className="translator-input">
+            <label className="sr-only" htmlFor="source-text">{selectedLanguage.label} {copy.textLabel}</label>
+            <textarea id="source-text" dir="auto" value={sourceText} disabled={!isReady} onChange={(event) => updateSourceText(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); translateText(); } }} placeholder={selectedLanguage.placeholder} />
+            <button type="button" className={`dictation-button${isDictating ? " active" : ""}`} onClick={toggleDictation} disabled={!isReady} aria-pressed={isDictating} aria-label={isDictating ? copy.microphoneStop : copy.microphoneStart} title={copy.microphoneStart}>{isDictating ? "■" : "🎙"}</button>
+          </div>
+          <div className="translator-actions"><div>{sourceExamples.map((example) => <button type="button" key={example} disabled={!isReady} onClick={() => updateSourceText(example)}>{example}</button>)}</div><button type="button" className="translate-button" onClick={translateText} disabled={!isReady || !sourceText.trim() || isTranslating}>{isTranslating ? copy.translating : copy.translate}</button></div>
+          {speechError && <p className="speech-error" role="alert">{speechError}</p>}
+          <div className="translation-results" aria-live="polite">{targetLanguages.map((targetLanguage) => {
+            const language = interfaceLanguages.find((item) => item.translateCode === targetLanguage)!;
+            const meta = targetLanguageMeta[targetLanguage] ?? { short: language.inputLabel, label: language.label, placeholder: copy.targetPlaceholder };
+            const result = translation[targetLanguage];
+            const hasSpeech = speechSupportedLanguages.has(targetLanguage);
+            return <article key={targetLanguage} data-target-language={targetLanguage}><header><span>{meta.short}</span><div>{targetLanguage === "kk" ? <b>{meta.label}</b> : <select className="target-language-select" aria-label={copy.secondaryLanguage} value={secondaryLanguageCode} disabled={!isReady} onChange={(event) => { clearPendingTranslation(); setSecondaryLanguageCode(event.target.value); }}>{interfaceLanguages.filter((item) => item.translateCode !== "kk").map((item) => <option key={item.translateCode} value={item.translateCode}>{item.label}</option>)}</select>}<button type="button" className="speech-button" onClick={() => createSpeech(result?.text ?? "", targetLanguage)} disabled={!hasSpeech || !result?.text || speakingLanguage !== null} aria-label={`${meta.label} ${copy.listenTranslation}`} title={hasSpeech ? copy.listenTitle : copy.speechUnsupported}>{speakingLanguage === targetLanguage ? "…" : "▶"}</button><button type="button" className="speech-button" onClick={() => createSpeech(result?.text ?? "", targetLanguage, true)} disabled={!hasSpeech || !result?.text || speakingLanguage !== null} aria-label={`${meta.label} ${copy.downloadTranslation}`} title={hasSpeech ? copy.downloadTitle : copy.speechUnsupported}>↓</button></div></header><p dir="auto" className={result?.error ? "translation-error" : undefined}>{result?.text ?? result?.error ?? copy.targetPlaceholder}</p></article>;
+          })}</div>
+          <div className="translator-note" dir="auto"><strong>{copy.explanationTitle}</strong><p>{Object.keys(translation).length ? copy.automaticTranslation : copy.explanationEmpty}</p></div>
+          <div className="translator-example"><span dir="auto">{copy.sourceText}</span><p dir="auto">{Object.keys(translation).length ? sourceText.trim() : copy.sourcePlaceholder}</p></div>
+        </div>
+      </section>
+      <footer className="site-footer"><a className="brand" href="#top"><span className="brand-seal"><i>AI</i></span><span className="brand-copy"><strong>Ai.Saule</strong><small>{brandTagline}</small></span></a><p className="department-credit" dir="auto">{copy.department}</p><a className="top-link" href="#top">{copy.top}</a></footer>
     </main>
   );
 }
