@@ -2,7 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests",
-  testMatch: "translation.spec.ts",
+  testMatch: "*.spec.ts",
   webServer: {
     command: "npm.cmd run dev",
     url: "http://localhost:3001",

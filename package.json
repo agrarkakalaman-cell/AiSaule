@@ -9,7 +9,8 @@
     "dev": "vinext dev --port 3001",
     "build": "vinext build",
     "start": "vinext start",
-    "test": "npm run build && node --test tests/rendered-html.test.mjs",
+    "backend": "python -m uvicorn backend.app:app --host 127.0.0.1 --port 8001",
+    "test": "npm run build && node --test tests/rendered-html.test.mjs tests/vocabulary-data.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "test:e2e": "playwright test",
     "db:generate": "drizzle-kit generate"
