@@ -163,11 +163,14 @@ export default function Home() {
     kind: vocabularyRowKinds[itemIndex],
     translation: item.translations[selectedLanguage.translateCode] ?? item.translations.en,
   }));
-  const targetLanguages = selectedLanguage.translateCode === "kk" ? [secondaryLanguageCode] : ["kk"];
+  const targetLanguages = ["kk", secondaryLanguageCode];
   const sourceExamples = dailyVocabulary.slice(0, 3).map((item) => item.translations[selectedLanguage.translateCode] ?? item.translations.en);
   const featureLabels = selectedLanguage.translateCode === "kk"
     ? ["Нақты аударма", "Дауыспен енгізу"]
     : [copy.translate.replace(" →", ""), copy.microphoneStart];
+  const targetPlaceholder = selectedLanguage.translateCode === "uz"
+    ? "Tarjima shu yerda ko‘rsatiladi."
+    : copy.targetPlaceholder;
 
   useEffect(() => {
     document.documentElement.lang = selectedLanguage.translateCode;
@@ -210,6 +213,53 @@ export default function Home() {
   const updateSourceText = (text: string) => {
     clearPendingTranslation();
     setSourceText(text);
+  };
+
+  const changeSecondaryLanguage = async (languageCode: string) => {
+    const text = sourceText.trim();
+    const kazakhTranslation = translation.kk;
+    clearPendingTranslation();
+    setSecondaryLanguageCode(languageCode);
+    setTranslation(kazakhTranslation ? { kk: kazakhTranslation } : {});
+    if (!text || !kazakhTranslation) return;
+
+    const requestId = requestIdRef.current;
+    const controller = new AbortController();
+    translationControllerRef.current = controller;
+    setIsTranslating(true);
+    const timeoutId = window.setTimeout(() => controller.abort(), 35000);
+
+    try {
+      const response = await fetch(`${translatorApiUrl}/translate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, source: selectedLanguage.translateCode, targets: [languageCode] }),
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error(copy.translationFailed);
+      const payload = await response.json() as { translations?: Record<string, string> };
+      if (!payload.translations?.[languageCode]) throw new Error(copy.translationFailed);
+      if (requestId === requestIdRef.current) {
+        setTranslation((current) => ({ ...current, [languageCode]: { text: payload.translations![languageCode] } }));
+      }
+    } catch (caughtError) {
+      if (requestId === requestIdRef.current) {
+        const error = controller.signal.aborted
+          ? copy.translationTimeout
+          : caughtError instanceof TypeError
+            ? copy.translationConnection
+            : caughtError instanceof Error
+              ? caughtError.message
+              : copy.translationFailed;
+        setTranslation((current) => ({ ...current, [languageCode]: { error } }));
+      }
+    } finally {
+      window.clearTimeout(timeoutId);
+      if (requestId === requestIdRef.current) {
+        translationControllerRef.current = null;
+        setIsTranslating(false);
+      }
+    }
   };
 
   const toggleDictation = () => {
@@ -357,7 +407,7 @@ export default function Home() {
     <main data-ready={isReady ? "true" : "false"} dir="ltr">
       <audio ref={radioRef} preload="none" src="https://radio-streams.kaztrk.kz/shalqar/shalqar/icecast.audio" onPause={() => setIsListening(false)} onError={() => setIsListening(false)} />
       <header ref={headerRef} className="institutional-header" id="top">
-        <div className="institutional-header-inner"><a className="university-brand" href="https://www.kaznaru.edu.kz/" target="_blank" rel="noreferrer" aria-label={`${copy.university} — kaznaru.edu.kz`}><img src="/kaznaru_logo.png" alt="KazNARU" /><span className="university-name-full"><strong>ҚАЗАҚ ҰЛТТЫҚ АГРАРЛЫҚ ЗЕРТТЕУ УНИВЕРСИТЕТІ</strong><small>KAZAKH NATIONAL AGRARIAN RESEARCH UNIVERSITY</small></span><span className="university-name-short"><strong>ҚазҰАЗУ</strong><small>KazNARU</small></span></a><nav className="header-language-list" aria-label={copy.translationFrom}>{interfaceLanguages.map((language) => <button type="button" key={language.code} className={`header-language${language.code === selectedLanguage.code ? " active" : ""}`} disabled={!isReady} onClick={() => selectLanguage(language)} aria-current={language.code === selectedLanguage.code ? "true" : undefined}>{language.code === "ҚАЗ" ? "Қаз" : language.code}</button>)}</nav></div>
+        <div className="institutional-header-inner"><a className="university-brand" href="https://www.kaznaru.edu.kz/" target="_blank" rel="noreferrer" aria-label={`${copy.university} — kaznaru.edu.kz`}><img src="/kaznaru_logo.png" alt="KazNARU" /><span className="university-name-full"><strong>ҚАЗАҚ ҰЛТТЫҚ АГРАРЛЫҚ ЗЕРТТЕУ УНИВЕРСИТЕТІ</strong><small>KAZAKH NATIONAL AGRARIAN RESEARCH UNIVERSITY</small></span><span className="university-name-short"><strong>ҚазҰАЗУ</strong><small>KazNARU</small></span></a><nav className="header-language-list" aria-label={copy.translationFrom}>{interfaceLanguages.map((language) => <button type="button" key={language.code} className={`header-language${language.code === selectedLanguage.code ? " active" : ""}`} disabled={!isReady} onClick={() => selectLanguage(language)} aria-current={language.code === selectedLanguage.code ? "true" : undefined}>{language.code}</button>)}</nav></div>
       </header>
 
       <section className="hero" aria-labelledby="hero-title">
@@ -369,13 +419,12 @@ export default function Home() {
         <div className="translator-wrap">
           <p className="translator-label">Ai.SAULE • {copy.translate.replace(" →", "")}</p>
           <h2 id="translator-title" dir="auto">{selectedLanguage.label} {copy.textLabel} — <em>{copy.dictionaryAccent}</em></h2>
-          <p className="translator-status" dir="auto"><i /> {selectedLanguage.label} {copy.translationFrom}</p>
           <div className="translator-workbench"><div className="source-panel"><div className="translator-input-head"><span>{selectedLanguage.inputLabel}</span><strong>{selectedLanguage.label}</strong></div><div className="translator-input"><label className="sr-only" htmlFor="source-text">{selectedLanguage.label} {copy.textLabel}</label><textarea id="source-text" dir="auto" value={sourceText} disabled={!isReady} onChange={(event) => updateSourceText(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); translateText(); } }} placeholder={selectedLanguage.placeholder} /><button type="button" className={`dictation-button${isDictating ? " active" : ""}`} onClick={toggleDictation} disabled={!isReady} aria-pressed={isDictating} aria-label={isDictating ? copy.microphoneStop : copy.microphoneStart} title={copy.microphoneStart}>{isDictating ? <Icon name="stop" /> : <Icon name="mic" />}</button></div><div className="translator-actions"><div>{sourceExamples.map((example, index) => <button type="button" key={`${selectedLanguage.translateCode}-${index}`} disabled={!isReady} onClick={() => updateSourceText(example)}>{example}</button>)}</div></div></div><button type="button" className="translate-button central-translate" onClick={translateText} disabled={!isReady || !sourceText.trim() || isTranslating} aria-label={copy.translate}>{isTranslating ? <span>{copy.translating}</span> : <><span>{copy.translate.replace(" →", "")}</span><Icon name="arrow-right" size={19} /></>}</button><div className="translation-results" aria-live="polite">{targetLanguages.map((targetLanguage) => {
             const language = interfaceLanguages.find((item) => item.translateCode === targetLanguage)!;
             const meta = targetLanguageMeta[targetLanguage] ?? { short: language.inputLabel, label: language.label, placeholder: copy.targetPlaceholder };
             const result = translation[targetLanguage];
             const hasSpeech = speechSupportedLanguages.has(targetLanguage);
-            return <article key={targetLanguage} data-target-language={targetLanguage}><header><span>{meta.short}</span><div>{selectedLanguage.translateCode === "kk" ? <select className="target-language-select" aria-label={copy.secondaryLanguage} value={secondaryLanguageCode} disabled={!isReady} onChange={(event) => { clearPendingTranslation(); setSecondaryLanguageCode(event.target.value); }}>{interfaceLanguages.filter((item) => item.translateCode !== "kk").map((item) => <option key={item.translateCode} value={item.translateCode}>{item.label}</option>)}</select> : <b>{meta.label}</b>}<button type="button" className="speech-button" onClick={() => createSpeech(result?.text ?? "", targetLanguage)} disabled={!hasSpeech || !result?.text || speakingLanguage !== null} aria-label={`${meta.label} ${copy.listenTranslation}`} title={hasSpeech ? copy.listenTitle : copy.speechUnsupported}>{speakingLanguage === targetLanguage ? "…" : <Icon name="volume" size={16} />}</button><button type="button" className="speech-button" onClick={() => createSpeech(result?.text ?? "", targetLanguage, true)} disabled={!hasSpeech || !result?.text || speakingLanguage !== null} aria-label={`${meta.label} ${copy.downloadTranslation}`} title={hasSpeech ? copy.downloadTitle : copy.speechUnsupported}><Icon name="download" size={16} /></button></div></header><p dir="auto" className={result?.error ? "translation-error" : undefined}>{result?.text ?? result?.error ?? copy.targetPlaceholder}</p></article>;
+            return <article key={targetLanguage} data-target-language={targetLanguage}><header><span>{meta.short}</span><div>{targetLanguage !== "kk" && <><label className="sr-only" htmlFor="secondary-target-language">{copy.secondaryLanguage}</label><select id="secondary-target-language" className="target-language-select" aria-label={copy.secondaryLanguage} value={secondaryLanguageCode} disabled={!isReady || isTranslating} onChange={(event) => changeSecondaryLanguage(event.target.value)}>{interfaceLanguages.filter((item) => item.translateCode !== "kk").map((item) => <option key={item.translateCode} value={item.translateCode}>{item.label}</option>)}</select></>}<button type="button" className="speech-button" onClick={() => createSpeech(result?.text ?? "", targetLanguage)} disabled={!hasSpeech || !result?.text || speakingLanguage !== null} aria-label={`${meta.label} ${copy.listenTranslation}`} title={hasSpeech ? copy.listenTitle : copy.speechUnsupported}>{speakingLanguage === targetLanguage ? "…" : <Icon name="volume" size={16} />}</button><button type="button" className="speech-button" onClick={() => createSpeech(result?.text ?? "", targetLanguage, true)} disabled={!hasSpeech || !result?.text || speakingLanguage !== null} aria-label={`${meta.label} ${copy.downloadTranslation}`} title={hasSpeech ? copy.downloadTitle : copy.speechUnsupported}><Icon name="download" size={16} /></button></div></header><p dir="auto" className={result?.error ? "translation-error" : undefined}>{result?.text ?? result?.error ?? targetPlaceholder}</p></article>;
           })}</div></div>{speechError && <p className="speech-error" role="alert">{speechError}</p>}
           <div className="translator-note" dir="auto"><strong>{copy.explanationTitle}</strong><p>{Object.keys(translation).length ? copy.automaticTranslation : copy.explanationEmpty}</p></div>
           <div className="translator-example"><span dir="auto">{copy.sourceText}</span><p dir="auto">{Object.keys(translation).length ? sourceText.trim() : copy.sourcePlaceholder}</p></div>
